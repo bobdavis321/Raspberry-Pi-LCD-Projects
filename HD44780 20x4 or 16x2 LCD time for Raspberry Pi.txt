@@ -1,0 +1,93 @@
+# HD44780 20x4/16x2 LCD time for Raspberry Pi
+# Based on: Matt Hawkins @ raspberrypi-spy.co.uk
+# Modified: Bob Davis
+# Date    : 04/21/2016
+
+# imports
+import RPi.GPIO as GPIO
+import time
+
+# Define the GPIO to LCD mapping
+LCD_RS = 7
+LCD_E  = 8
+LCD_D4 = 25 
+LCD_D5 = 24
+LCD_D6 = 23
+LCD_D7 = 18
+
+# Define some device settings
+LCD_WIDTH = 20 # Maximum characters
+LCD_CHR = True
+LCD_CMD = False
+# Timing delay
+E_DELAY = 0.0001
+
+def main():
+  # Main program block
+  GPIO.setmode(GPIO.BCM)  # Use BCM GPIO 
+  GPIO.setup(LCD_E, GPIO.OUT)  # E
+  GPIO.setup(LCD_RS, GPIO.OUT) # RS
+  GPIO.setup(LCD_D4, GPIO.OUT) # DB4
+  GPIO.setup(LCD_D5, GPIO.OUT) # DB5
+  GPIO.setup(LCD_D6, GPIO.OUT) # DB6
+  GPIO.setup(LCD_D7, GPIO.OUT) # DB7
+
+  # Initialise display
+  lcd_init()
+  #Convert time to a string
+  times=time.strftime('%H:%M:%S-%D')
+
+  # Send some test data, must have 20 characters
+  lcd_byte(0x80, LCD_CMD)
+  lcd_string("Time and Date:      ")
+  lcd_byte(0xC0, LCD_CMD)
+  lcd_string(times+"              ")  
+  lcd_byte(0x94, LCD_CMD)
+  lcd_string("By Bob Davis  II    ") 
+  lcd_byte(0xD4, LCD_CMD)
+  lcd_string("For Raspberry Pi LCD")   
+
+def lcd_init():
+  # Initialise display
+  lcd_byte(0x33,LCD_CMD) #Initialize
+  lcd_byte(0x32,LCD_CMD) #Initialize
+  lcd_byte(0x28,LCD_CMD) #data length num of lines
+  lcd_byte(0x0c,LCD_CMD) #display on 0f=Cursor on 
+  lcd_byte(0x07,LCD_CMD) #move direction
+  lcd_byte(0x01,LCD_CMD) #clear display
+
+def lcd_string(message):
+  for i in range(LCD_WIDTH):
+    lcd_byte(ord(message[i]),LCD_CHR)
+
+def lcd_byte(data, mode):
+  # Send byte to data pins
+  # mode  True=character, False=command
+  GPIO.output(LCD_RS, mode) # RS
+
+  # High bits
+  GPIO.output(LCD_D4, data&0x10!=0)
+  GPIO.output(LCD_D5, data&0x20!=0)
+  GPIO.output(LCD_D6, data&0x40!=0)
+  GPIO.output(LCD_D7, data&0x80!=0)
+
+  # Toggle 'Enable' pin
+  time.sleep(E_DELAY)    
+  GPIO.output(LCD_E, True)  
+  time.sleep(E_DELAY)
+  GPIO.output(LCD_E, False)  
+
+  # Low bits
+  GPIO.output(LCD_D4, data&0x01!=0)
+  GPIO.output(LCD_D5, data&0x02!=0)
+  GPIO.output(LCD_D6, data&0x04!=0)
+  GPIO.output(LCD_D7, data&0x08!=0)
+  
+  # Toggle 'Enable' pin
+  time.sleep(E_DELAY)    
+  GPIO.output(LCD_E, True)  
+  time.sleep(E_DELAY)
+  GPIO.output(LCD_E, False)  
+
+if __name__ == '__main__':
+  main()

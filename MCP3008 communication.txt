@@ -1,0 +1,31 @@
+# MCP3008 communication
+# Prints the contents of all 8 analog inputs.
+import RPi.GPIO as GPIO
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(8, GPIO.OUT)  # CE0
+GPIO.setup(9, GPIO.IN)   # MISO
+GPIO.setup(10, GPIO.OUT) # MOSI 
+GPIO.setup(11, GPIO.OUT) # Sclock
+
+for port in range (0,8):
+  GPIO.output(8, GPIO.HIGH) # deselect chip
+  GPIO.output(11, GPIO.LOW) # set clock low
+  adcin=0
+  for shift in range (0,24): # 24 bits shifted
+    GPIO.output(8, GPIO.LOW) # select chip
+    GPIO.output(10, GPIO.LOW) # low for most bits
+    if (shift==7 or shift==8): 
+        GPIO.output(10, GPIO.HIGH)
+    if (shift==9)and(port > 3): 
+        GPIO.output(10, GPIO.HIGH)
+    if (shift==10)and(port & 0x02): 
+        GPIO.output(10, GPIO.HIGH)
+    if (shift==11)and(port & 0x01): 
+        GPIO.output(10, GPIO.HIGH)
+    if (shift > 13)and(GPIO.input(9)):
+        adcin = adcin+1 # set bit
+    adcin = adcin << 1  # left shift 1
+    GPIO.output(11, GPIO.LOW) # cycle the clock
+    GPIO.output(11, GPIO.HIGH) 
+  print adcin
+  # end

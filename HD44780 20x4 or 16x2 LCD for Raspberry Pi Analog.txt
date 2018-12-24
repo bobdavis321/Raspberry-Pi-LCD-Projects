@@ -1,0 +1,92 @@
+# HD44780 20x4/16x2 LCD for Raspberry Pi
+# Author  : Matt Hawkins-raspberrypi-spy.co.uk/
+# Modified: by Bob Davis
+# Date    : 04/21/2016
+
+# imports
+import RPi.GPIO as GPIO
+import time
+# Define GPIO to LCD mapping
+LCD_RS = 7
+LCD_E  = 8 #conflicts with MCP3008 CE 
+LCD_D4 = 25 
+LCD_D5 = 24
+LCD_D6 = 23
+LCD_D7 = 18
+# Define some device constants
+LCD_WIDTH = 20 # Maximum characters
+# Timing constant
+E_DELAY = 0.0001
+
+# MCP3008 lines
+GPIO.setmode(GPIO.BCM)   # Use BCM GPIO 
+GPIO.setup(8, GPIO.OUT)  # CE0
+GPIO.setup(9, GPIO.IN)   # MISO
+GPIO.setup(10, GPIO.OUT) # MOSI 
+GPIO.setup(11, GPIO.OUT) # Sclock
+# LCD lines
+GPIO.setup(LCD_E, GPIO.OUT)  # E
+GPIO.setup(LCD_RS, GPIO.OUT) # RS
+GPIO.setup(LCD_D4, GPIO.OUT) # DB4
+GPIO.setup(LCD_D5, GPIO.OUT) # DB5
+GPIO.setup(LCD_D6, GPIO.OUT) # DB6
+GPIO.setup(LCD_D7, GPIO.OUT) # DB7
+ 
+def main():
+  # Main program block
+  # Initialise display
+  lcd_init()
+  # Send data must have <= 20 characters
+  analogx=(readport(0)/4)
+  analogy=(readport(1)/4)
+  lcd_byte(0x80, 0)
+  lcd_string("Analog 1 = "+str(analogx))
+  lcd_byte(0xC0, 0)
+  lcd_string("Analog 2 = "+str(analogy))
+  lcd_byte(0x94, 0)
+  lcd_string("Show Analog Inputs")   
+  lcd_byte(0xD4, 0)
+  lcd_string("By Bob Davis II")   
+
+#Read the analog data
+def readport(port):
+  GPIO.output(8, GPIO.HIGH) # deselect chip
+  GPIO.output(11, GPIO.LOW) # set clock low
+  adcin=0
+  for shift in range (0,24): # 24 pits shifted
+    GPIO.output(8, GPIO.LOW) # select chip
+    GPIO.output(10, GPIO.LOW) # low for most bits
+    if (shift==7 or shift==8): 
+      GPIO.output(10, GPIO.HIGH)
+    if (shift==9)and(port & 0x04): 
+      GPIO.output(10, GPIO.HIGH)
+    if (shift==10)and(port & 0x02): 
+      GPIO.output(10, GPIO.HIGH)
+    if (shift==11)and(port & 0x01): 
+      GPIO.output(10, GPIO.HIGH)
+    if (shift > 13)and(GPIO.input(9)):
+      adcin = adcin+1 # set bit
+    adcin = adcin << 1  # left shift 1
+    GPIO.output(11, GPIO.LOW) # cycle the clock
+    GPIO.output(11, GPIO.HIGH) 
+  return (adcin)
+
+def lcd_init():
+  # Initialise display
+  lcd_byte(0x33,0) #Initialize
+  lcd_byte(0x32,0) #Initialize
+  lcd_byte(0x28,0) #data length num of lines
+  lcd_byte(0x0c,0) #Display on, 0f=Cursor on 
+  lcd_byte(0x07,0) #move direction
+  lcd_byte(0x01,0) #clear display
+
+def lcd_string(message):
+  # fix for lines shorter than 20 characters
+  while (len(message) < LCD_WIDTH):
+    message=(message+" ")
+  for i in range(LCD_WIDTH):
+    lcd_byte(ord(message[i]),1)
+
+def lcd_byte(data, mode):
+# The rest of the code is unchanged.
+

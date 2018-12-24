@@ -1,0 +1,427 @@
+# SSD1289 PARALLEL driver in python
+# By Bob Davis
+# Parts are from code on the Internet
+ 
+import RPi.GPIO as GPIO
+import time
+import sys
+# dATA lines
+D0=17
+D1=18
+D2=27
+D3=22
+D4=23
+D5=24
+D6=25
+D7=4
+# cOMMAND Lines
+RS=3   # Data/Control 
+RST=15 # Reset
+CS=7   # Chip Select
+WR=2   # Write clock
+# MCP3008 lines
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(8, GPIO.OUT)  # CE0
+GPIO.setup(9, GPIO.IN)   # MISO
+GPIO.setup(10, GPIO.OUT) # MOSI 
+GPIO.setup(11, GPIO.OUT) # Sclock
+
+font = {
+  ' ': [0x00, 0x00, 0x00, 0x00, 0x00],
+  '!': [0x00, 0x00, 0x5f, 0x00, 0x00],
+  '"': [0x00, 0x07, 0x00, 0x07, 0x00],
+  '#': [0x14, 0x7f, 0x14, 0x7f, 0x14],
+  '$': [0x24, 0x2a, 0x7f, 0x2a, 0x12],
+  '%': [0x23, 0x13, 0x08, 0x64, 0x62],
+  '&': [0x36, 0x49, 0x55, 0x22, 0x50],
+  "'": [0x00, 0x05, 0x03, 0x00, 0x00],
+  '(': [0x00, 0x1c, 0x22, 0x41, 0x00],
+  ')': [0x00, 0x41, 0x22, 0x1c, 0x00],
+  '*': [0x14, 0x08, 0x3e, 0x08, 0x14],
+  '+': [0x08, 0x08, 0x3e, 0x08, 0x08],
+  ',': [0x00, 0x50, 0x30, 0x00, 0x00],
+  '-': [0x08, 0x08, 0x08, 0x08, 0x08],
+  '.': [0x00, 0x60, 0x60, 0x00, 0x00],
+  '/': [0x20, 0x10, 0x08, 0x04, 0x02],
+  '0': [0x3e, 0x51, 0x49, 0x45, 0x3e],
+  '1': [0x00, 0x42, 0x7f, 0x40, 0x00],
+  '2': [0x42, 0x61, 0x51, 0x49, 0x46],
+  '3': [0x21, 0x41, 0x45, 0x4b, 0x31],
+  '4': [0x18, 0x14, 0x12, 0x7f, 0x10],
+  '5': [0x27, 0x45, 0x45, 0x45, 0x39],
+  '6': [0x3c, 0x4a, 0x49, 0x49, 0x30],
+  '7': [0x01, 0x71, 0x09, 0x05, 0x03],
+  '8': [0x36, 0x49, 0x49, 0x49, 0x36],
+  '9': [0x06, 0x49, 0x49, 0x29, 0x1e],
+  ':': [0x00, 0x36, 0x36, 0x00, 0x00],
+  ';': [0x00, 0x56, 0x36, 0x00, 0x00],
+  '<': [0x08, 0x14, 0x22, 0x41, 0x00],
+  '=': [0x14, 0x14, 0x14, 0x14, 0x14],
+  '>': [0x00, 0x41, 0x22, 0x14, 0x08],
+  '?': [0x02, 0x01, 0x51, 0x09, 0x06],
+  '@': [0x32, 0x49, 0x79, 0x41, 0x3e],
+  'A': [0x7e, 0x11, 0x11, 0x11, 0x7e],
+  'B': [0x7f, 0x49, 0x49, 0x49, 0x36],
+  'C': [0x3e, 0x41, 0x41, 0x41, 0x22],
+  'D': [0x7f, 0x41, 0x41, 0x22, 0x1c],
+  'E': [0x7f, 0x49, 0x49, 0x49, 0x41],
+  'F': [0x7f, 0x09, 0x09, 0x09, 0x01],
+  'G': [0x3e, 0x41, 0x49, 0x49, 0x7a],
+  'H': [0x7f, 0x08, 0x08, 0x08, 0x7f],
+  'I': [0x00, 0x41, 0x7f, 0x41, 0x00],
+  'J': [0x20, 0x40, 0x41, 0x3f, 0x01],
+  'K': [0x7f, 0x08, 0x14, 0x22, 0x41],
+  'L': [0x7f, 0x40, 0x40, 0x40, 0x40],
+  'M': [0x7f, 0x02, 0x0c, 0x02, 0x7f],
+  'N': [0x7f, 0x04, 0x08, 0x10, 0x7f],
+  'O': [0x3e, 0x41, 0x41, 0x41, 0x3e],
+  'P': [0x7f, 0x09, 0x09, 0x09, 0x06],
+  'Q': [0x3e, 0x41, 0x51, 0x21, 0x5e],
+  'R': [0x7f, 0x09, 0x19, 0x29, 0x46],
+  'S': [0x46, 0x49, 0x49, 0x49, 0x31],
+  'T': [0x01, 0x01, 0x7f, 0x01, 0x01],
+  'U': [0x3f, 0x40, 0x40, 0x40, 0x3f],
+  'V': [0x1f, 0x20, 0x40, 0x20, 0x1f],
+  'W': [0x3f, 0x40, 0x38, 0x40, 0x3f],
+  'X': [0x63, 0x14, 0x08, 0x14, 0x63],
+  'Y': [0x07, 0x08, 0x70, 0x08, 0x07],
+  'Z': [0x61, 0x51, 0x49, 0x45, 0x43],
+  '[': [0x00, 0x7f, 0x41, 0x41, 0x00],
+  '\\': [0x02, 0x04, 0x08, 0x10, 0x20],
+  ']': [0x00, 0x41, 0x41, 0x7f, 0x00],
+  '^': [0x04, 0x02, 0x01, 0x02, 0x04],
+  '_': [0x40, 0x40, 0x40, 0x40, 0x40],
+  '`': [0x00, 0x01, 0x02, 0x04, 0x00],
+  'a': [0x20, 0x54, 0x54, 0x54, 0x78],
+  'b': [0x7f, 0x48, 0x44, 0x44, 0x38],
+  'c': [0x38, 0x44, 0x44, 0x44, 0x20],
+  'd': [0x38, 0x44, 0x44, 0x48, 0x7f],
+  'e': [0x38, 0x54, 0x54, 0x54, 0x18],
+  'f': [0x08, 0x7e, 0x09, 0x01, 0x02],
+  'g': [0x0c, 0x52, 0x52, 0x52, 0x3e],
+  'h': [0x7f, 0x08, 0x04, 0x04, 0x78],
+  'i': [0x00, 0x44, 0x7d, 0x40, 0x00],
+  'j': [0x20, 0x40, 0x44, 0x3d, 0x00],
+  'k': [0x7f, 0x10, 0x28, 0x44, 0x00],
+  'l': [0x00, 0x41, 0x7f, 0x40, 0x00],
+  'm': [0x7c, 0x04, 0x18, 0x04, 0x78],
+  'n': [0x7c, 0x08, 0x04, 0x04, 0x78],
+  'o': [0x38, 0x44, 0x44, 0x44, 0x38],
+  'p': [0x7c, 0x14, 0x14, 0x14, 0x08],
+  'q': [0x08, 0x14, 0x14, 0x18, 0x7c],
+  'r': [0x7c, 0x08, 0x04, 0x04, 0x08],
+  's': [0x48, 0x54, 0x54, 0x54, 0x20],
+  't': [0x04, 0x3f, 0x44, 0x40, 0x20],
+  'u': [0x3c, 0x40, 0x40, 0x20, 0x7c],
+  'v': [0x1c, 0x20, 0x40, 0x20, 0x1c],
+  'w': [0x3c, 0x40, 0x30, 0x40, 0x3c],
+  'x': [0x44, 0x28, 0x10, 0x28, 0x44],
+  'y': [0x0c, 0x50, 0x50, 0x50, 0x3c],
+  'z': [0x44, 0x64, 0x54, 0x4c, 0x44],
+  '{': [0x00, 0x08, 0x36, 0x41, 0x00],
+  '|': [0x00, 0x00, 0x7f, 0x00, 0x00],
+  '}': [0x00, 0x41, 0x36, 0x08, 0x00],
+  '~': [0x10, 0x08, 0x08, 0x10, 0x08],
+}
+ 
+def init():
+  GPIO.setup (D0, GPIO.OUT)
+  GPIO.setup (D1, GPIO.OUT)
+  GPIO.setup (D2, GPIO.OUT)
+  GPIO.setup (D3, GPIO.OUT)
+  GPIO.setup (D4, GPIO.OUT)
+  GPIO.setup (D5, GPIO.OUT)
+  GPIO.setup (D6, GPIO.OUT)
+  GPIO.setup (D7, GPIO.OUT)
+  GPIO.setup (RS, GPIO.OUT)
+  GPIO.setup (RST, GPIO.OUT)
+  GPIO.setup (CS, GPIO.OUT)
+  GPIO.setup (WR, GPIO.OUT)
+  Reset()
+
+# set up for SSD1289:
+  WriteCD(0x00, 0x00, 0x01);
+  WriteCD(0x03, 0xA8, 0xA4);
+  WriteCD(0x0C, 0x00, 0x00);
+  WriteCD(0x0D, 0x08, 0x0C);
+  WriteCD(0x0E, 0x2B, 0x00);
+  WriteCD(0x1E, 0x00, 0xB7);
+  WriteCD(0x01, 0x61, 0x3f);
+  WriteCD(0x02, 0x06, 0x00);
+  WriteCD(0x10, 0x00, 0x00);
+  WriteCD(0x11, 0x48, 0x30); # 3 bytes per color
+  WriteCD(0x05, 0x00, 0x00);
+  WriteCD(0x06, 0x00, 0x00);
+  WriteCD(0x16, 0xEF, 0x1C);
+  WriteCD(0x17, 0x00, 0x03);
+  WriteCD(0x07, 0x02, 0x33);
+  WriteCD(0x0B, 0x00, 0x00);
+  WriteCD(0x0F, 0x00, 0x00);
+  WriteCD(0x41, 0x00, 0x00);
+  WriteCD(0x42, 0x00, 0x00);
+  WriteCD(0x48, 0x00, 0x00);
+  WriteCD(0x49, 0x01, 0x3F);
+  WriteCD(0x4A, 0x00, 0x00);
+  WriteCD(0x4B, 0x00, 0x00);
+  WriteCD(0x44, 0xEF, 0x00);
+  WriteCD(0x45, 0x00, 0x00);
+  WriteCD(0x46, 0x01, 0x3F);
+  WriteCD(0x23, 0x00, 0x00);
+  WriteCD(0x24, 0x00, 0x00);
+  WriteCD(0x25, 0x80, 0x00);
+  WriteCD(0x4f, 0x00, 0x00); # X position
+  WriteCD(0x4e, 0x00, 0x00); # Y Position
+#  WriteCmd(0x22);
+
+def Reset (): # Reset Display
+  GPIO.output (RST, True )
+  GPIO.output (RST, False )
+  time.sleep ( 0.1 )
+  GPIO.output (RST, True )
+  time.sleep ( 0.1 )
+  GPIO.output (CS, True )
+  GPIO.output (WR, True )
+  time.sleep ( 0.1 )
+
+def WriteCmd (cmd): # Write Command
+  for x in range (0,2):
+    if (x==0):ccmd=0x00
+    else: ccmd=cmd
+    ccmd=cmd
+    GPIO.output (RS, False )  # Register Select = 0
+    GPIO.output (CS, False )  # Chip Select = 0
+    GPIO.output (D0, False )  
+    GPIO.output (D1, False )  
+    GPIO.output (D2, False )  
+    GPIO.output (D3, False )  
+    GPIO.output (D4, False )  
+    GPIO.output (D5, False )  
+    GPIO.output (D6, False )  
+    GPIO.output (D7, False )  
+    if (ccmd & 0x01): GPIO.output (D0, True)
+    if (ccmd & 0x02): GPIO.output (D1, True)
+    if (ccmd & 0x04): GPIO.output (D2, True)
+    if (ccmd & 0x08): GPIO.output (D3, True)
+    if (ccmd & 0x10): GPIO.output (D4, True)
+    if (ccmd & 0x20): GPIO.output (D5, True)
+    if (ccmd & 0x40): GPIO.output (D6, True)
+    if (ccmd & 0x80): GPIO.output (D7, True)
+    GPIO.output (WR, False )  
+#    time.sleep ( tdelay )
+    GPIO.output (WR, True )  # write the data
+    GPIO.output (CS, True )  # Chip Select = 1
+    
+def WriteData (cmd): # Write data
+    data=cmd
+    GPIO.output (RS, True )  # Register Select = 1
+    GPIO.output (CS, False )  # Chip Select = 0
+    GPIO.output (D0, False )  
+    GPIO.output (D1, False )  
+    GPIO.output (D2, False )  
+    GPIO.output (D3, False )  
+    GPIO.output (D4, False )  
+    GPIO.output (D5, False )  
+    GPIO.output (D6, False )  
+    GPIO.output (D7, False )  
+    if (data & 0x01): GPIO.output (D0, True)
+    if (data & 0x02): GPIO.output (D1, True)
+    if (data & 0x04): GPIO.output (D2, True)
+    if (data & 0x08): GPIO.output (D3, True)
+    if (data & 0x10): GPIO.output (D4, True)
+    if (data & 0x20): GPIO.output (D5, True)
+    if (data & 0x40): GPIO.output (D6, True)
+    if (data & 0x80): GPIO.output (D7, True)
+    GPIO.output (WR, False )  
+#    time.sleep ( tdelay )
+    GPIO.output (WR, True )  # write the data
+    GPIO.output (CS, True )  # Chip Select = 1
+    
+def WriteCD (cmd,data1, data2): #Write command followed by data
+    WriteCmd (cmd )
+    WriteData (data1)
+    WriteData (data2)
+
+def WriteMdata (mdata): #Write multiple data
+  for index in range (len(mdata)):
+    WriteData (mdata [index])
+
+def Fill (red, green, blue):
+  WriteCmd ( 0X22 ) # Next: red, Green, Blue bytes
+  pixline = []
+  for n in range (240): # Fill screen with color
+    if (blue==1):pixline.append (0xffff) # Blue       
+    else :pixline.append (0x0000) # Blue       
+    if (green==1):pixline.append (0xffff) # Green
+    else :pixline.append (0x0000) # Green
+    if (red==1):pixline.append (0xffff) # RED
+    else: pixline.append (0x0000) # RED
+  for n in range (320):   # 80=one quarter of LCD
+    WriteMdata (pixline)
+
+def goto (x, y):  # go to top/bottom
+  WriteCD(0x4f, 0x00, x); # GRAM horizontal Address  
+  WriteCD(0x4e, 0x00, y); # GRAM Vertical Address  
+
+def Image (filename):
+  WriteCmd ( 0X22 ) # Next: red, Green, Blue bytes
+  try:  # Prevents crashing when images do not work
+    with open(filename, 'rb') as bitmap: # Must be 128x128
+      for x in range ( 0,320 ):
+        pixline = []
+        for y in range ( 0,720 ): # 720=3x240
+#          bitmap.seek(0x36 + x*720 + (719-y)) # 36=header
+          bitmap.seek(0x36 + (320-x)*720 + (y)) # flipped 
+          Pixel = ord(bitmap.read(1))
+          pixline.append (Pixel)
+        WriteMdata (pixline)
+  except:
+      pass
+
+def text(string, red, green, blue):
+  WriteCmd ( 0X22 ) # Next: red, Green, Blue bytes
+  string=string.ljust(40, " ") # 240/6=40 characters
+  for row in range(10): # 10 rows top to bottom
+    pixline = []
+    for char in string: # Procees each character in string
+      for byte in range(5):
+        data=(font[char])  # Load 5 bytes of character
+        pix=0
+        if (row==0) and (data[byte] & 0x01):pix=1
+        if (row==1) and (data[byte] & 0x02):pix=1
+        if (row==2) and (data[byte] & 0x04):pix=1
+        if (row==3) and (data[byte] & 0x08):pix=1
+        if (row==4) and (data[byte] & 0x10):pix=1
+        if (row==5) and (data[byte] & 0x20):pix=1
+        if (row==6) and (data[byte] & 0x40):pix=1
+        if (row==7) and (data[byte] & 0x80):pix=1
+        if (row==8):pix=0  # Blank between lines
+        if (row==9):pix=0  # Blank between lines
+        if (pix==1):       # fill in R/G/B
+          if (blue==1): pixline.append (0xff)
+          else: pixline.append (0x00)
+          if (green==1): pixline.append (0xff)
+          else: pixline.append (0x00)
+          if (red==1):  pixline.append (0xff)
+          else: pixline.append (0x00)
+        else:   
+            pixline.append (0x00)
+            pixline.append (0x00)
+            pixline.append (0x00)
+      pixline.append (0x00) # blanks between characters
+      pixline.append (0x00)
+      pixline.append (0x00)
+    WriteMdata (pixline)
+    pixline = []
+
+def dtext(string, red, green, blue): # double size text
+  WriteCmd ( 0X22 ) # Next: red, Green, Blue bytes
+  string=string.ljust(20, " ") # 240/6=40 characters
+  for row in range(20): # 20 rows top to bottom
+    pixline = []
+    for char in string: # Procees each character in string
+      for byte in range(5):
+        data=(font[char])  # Load 5 bytes of character
+        pix=0
+        if ((row==0)or(row==1))and(data[byte]& 0x01):pix=1
+        if ((row==2)or(row==3))and(data[byte]& 0x02):pix=1
+        if ((row==4)or(row==5))and(data[byte]& 0x04):pix=1
+        if ((row==6)or(row==7))and(data[byte]& 0x08):pix=1
+        if ((row==8)or(row==9))and(data[byte]& 0x10):pix=1
+        if ((row==10)or(row==11))and(data[byte]&0x20):pix=1
+        if ((row==12)or(row==13))and(data[byte]&0x40):pix=1
+        if ((row==14)or(row==15))and(data[byte]&0x80):pix=1
+        if (row>16):pix=0  # Blank between lines
+        for twice in range(2):
+          if (pix==1):       # fill in R/G/B
+            if (blue==1): pixline.append (0xff)
+            else: pixline.append (0x00)
+            if (green==1): pixline.append (0xff)
+            else: pixline.append (0x00)
+            if (red==1): pixline.append (0xff)
+            else: pixline.append (0x00)
+          else:   
+            pixline.append (0x00)
+            pixline.append (0x00)
+            pixline.append (0x00)
+      for x in range (0,6):
+        pixline.append (0x00) # blanks between characters
+    WriteMdata (pixline)
+    pixline = []
+
+def readport(port):
+  GPIO.output(8, GPIO.HIGH) # deselect chip
+  GPIO.output(11, GPIO.LOW) # set clock low
+  adcin=0
+  for shift in range (0,24): # 24 pits shifted
+    GPIO.output(8, GPIO.LOW) # select chip
+    GPIO.output(10, GPIO.LOW) # low for most bits
+    if (shift==7 or shift==8): 
+      GPIO.output(10, GPIO.HIGH)
+    if (shift==9)and(port & 0x04): 
+      GPIO.output(10, GPIO.HIGH)
+    if (shift==10)and(port & 0x02): 
+      GPIO.output(10, GPIO.HIGH)
+    if (shift==11)and(port & 0x01): 
+      GPIO.output(10, GPIO.HIGH)
+    if (shift > 13)and(GPIO.input(9)):
+      adcin = adcin+1 # set bit
+    adcin = adcin << 1  # left shift 1
+    GPIO.output(11, GPIO.LOW) # cycle the clock
+    GPIO.output(11, GPIO.HIGH) 
+#  print adcin
+  return (adcin)
+
+def sketch():
+  for y in range(0,10000):
+    pixline=[]
+    analogx=(readport(0)/4)
+    analogy=(readport(1)/4)
+    analogr=(readport(5)/4)
+    analogg=(readport(6)/4)
+    analogb=(readport(7)/4)
+    if analogx>239:analogx=239
+    if analogy>239:analogy=239
+    goto (analogx, analogy)
+    WriteCmd ( 0X22 ) # Next: red, Green, Blue bytes
+    pixline.append (analogr)
+    pixline.append (analogg)
+    pixline.append (analogb)
+    print (analogr)
+    WriteMdata (pixline)
+    time.sleep(.01)
+ 
+if __name__ == "__main__" :
+  init ()
+  T1 = time.clock ()
+  goto(0,0)
+  Image ("Parrots-240.bmp")
+  time.sleep(2)
+  goto(0,0)
+  #Convert time and date to strings
+  times=time.strftime('%H:%M:%S')
+  dates=time.strftime('%D')
+  dtext ("    ", 0,0,0)
+  dtext("TESTING 320x240 LCD", 1,0,0) # Red
+  dtext ("    ", 0,0,0)
+  dtext("By Bob Davis II", 0,1,0)  # green
+  dtext ("    ", 0,0,0)
+  dtext("The date and time:", 0,0,1) # Blue
+  dtext ("    ", 0,0,0)
+  text(times+" "+dates, 1,1,1)    # white
+  dtext ("    ", 0,0,0)
+  dtext ("In Bigger Letters:", 1,1,1) 
+  dtext ("    ", 0,0,0)
+  dtext(times+" "+dates, 1,1,1)    # white
+  dtext ("    ", 0,0,0)
+  dtext ("Etch-a-Sketch Next", 1,1,1) 
+  dtext ("    ", 0,0,0)
+  time.sleep(2)
+  goto(0,0)
+  Fill (0,0,0) # black
+  time.sleep(2)
+  sketch()
+
+  T2 = time.clock ()
+  print 'Processing Time:' , str (T2 - T1)
+# End
+
